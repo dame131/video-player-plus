@@ -1,0 +1,8 @@
+{
+  "name": "Gemini Media Studio",
+  "description": "A next-generation media player and creativity suite powered by Google Gemini and Veo. Play local media, generate videos, edit images, and analyze content with AI.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
