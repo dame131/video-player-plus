@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player Plus - Extended</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Background Slideshow */
+        .slideshow-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .slideshow-container img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+
+        .slideshow-container img.active {
+            opacity: 1;
+        }
+
+        /* Night mode overlay */
+        body.night-mode .slideshow-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+        }
+
+        /* Main container */
+        .container {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .video-container {
+            background: #111;
+            border: 3px solid #0f0;
+            padding: 20px;
+            max-width: 900px;
+            width: 100%;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            background: #000;
+            border: 2px solid #0f0;
+        }
+
+        /* Military-style controls */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .controls button {
+            background: #0a3d0a;
+            color: #0f0;
+            border: 2px solid #0f0;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .controls button:hover {
+            background: #0f0;
+            color: #000;
+            transform: scale(1.05);
+        }
+
+        .controls button:active {
+            transform: scale(0.95);
+        }
+
+        /* Status */
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            background: #0a3d0a;
+            border: 2px solid #0f0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* Mode toggle */
+        .mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            background: #0a3d0a;
+            color: #0f0;
+            border: 2px solid #0f0;
+            padding: 10px 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .mode-toggle:hover {
+            background: #0f0;
+            color: #000;
+        }
+
+        /* File input section */
+        .file-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #0a3d0a;
+            border: 2px solid #0f0;
+        }
+
+        .file-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .file-section input[type="file"] {
+            background: #111;
+            color: #0f0;
+            border: 2px solid #0f0;
+            padding: 10px;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Slideshow -->
+    <div class="slideshow-container" id="slideshow"></div>
+
+    <!-- Mode Toggle -->
+    <button class="mode-toggle" onclick="toggleMode()">NIGHT MODE: OFF</button>
+
+    <!-- Main Container -->
+    <div class="container">
+        <div class="video-container">
+            <div class="file-section">
+                <label>LOAD VIDEO FILE:</label>
+                <input type="file" id="videoFile" accept="video/*" onchange="loadVideo(this)">
+            </div>
+
+            <video id="videoPlayer" controls>
+                Your browser does not support the video tag.
+            </video>
+
+            <div class="controls">
+                <button onclick="playVideo()">▶ PLAY</button>
+                <button onclick="pauseVideo()">⏸ PAUSE</button>
+                <button onclick="stopVideo()">⏹ STOP</button>
+                <button onclick="skipBackward()">⏪ -10s</button>
+                <button onclick="skipForward()">⏩ +10s</button>
+            </div>
+
+            <div class="status" id="status">STATUS: READY</div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let slideIndex = 0;
+        let slides = [];
+        let nightMode = false;
+        const videoPlayer = document.getElementById('videoPlayer');
+        const status = document.getElementById('status');
+
+        // Initialize slideshow
+        async function initSlideshow() {
+            const slideshowContainer = document.getElementById('slideshow');
+            
+            // Try to load images from /images/family/
+            // When photos are uploaded, this will automatically display them
+            const imageNames = [
+                'family_01.jpg', 'family_02.jpg', 'family_03.jpg',
+                'family_04.jpg', 'family_05.jpg', 'family_06.jpg',
+                'family_07.jpg', 'family_08.jpg', 'family_09.jpg', 'family_10.jpg'
+            ];
+
+            for (const imageName of imageNames) {
+                const img = document.createElement('img');
+                img.src = `./images/family/${imageName}`;
+                img.onerror = function() { this.style.display = 'none'; };
+                img.onload = function() { 
+                    slides.push(this);
+                    if (slides.length === 1) {
+                        this.classList.add('active');
+                    }
+                };
+                slideshowContainer.appendChild(img);
+            }
+
+            // Start slideshow rotation
+            setInterval(changeSlide, 8000); // 8 seconds per image
+        }
+
+        function changeSlide() {
+            if (slides.length === 0) return;
+
+            slides[slideIndex].classList.remove('active');
+            slideIndex = (slideIndex + 1) % slides.length;
+            slides[slideIndex].classList.add('active');
+        }
+
+        // Mode toggle
+        function toggleMode() {
+            nightMode = !nightMode;
+            document.body.classList.toggle('night-mode', nightMode);
+            document.querySelector('.mode-toggle').textContent = 
+                `NIGHT MODE: ${nightMode ? 'ON' : 'OFF'}`;
+        }
+
+        // Video controls
+        function loadVideo(input) {
+            const file = input.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                videoPlayer.src = url;
+                updateStatus('VIDEO LOADED');
+            }
+        }
+
+        function playVideo() {
+            videoPlayer.play();
+            updateStatus('PLAYING');
+        }
+
+        function pauseVideo() {
+            videoPlayer.pause();
+            updateStatus('PAUSED');
+        }
+
+        function stopVideo() {
+            videoPlayer.pause();
+            videoPlayer.currentTime = 0;
+            updateStatus('STOPPED');
+        }
+
+        function skipBackward() {
+            videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 10);
+            updateStatus('SKIPPED -10s');
+        }
+
+        function skipForward() {
+            videoPlayer.currentTime = Math.min(
+                videoPlayer.duration || 0, 
+                videoPlayer.currentTime + 10
+            );
+            updateStatus('SKIPPED +10s');
+        }
+
+        function updateStatus(message) {
+            status.textContent = `STATUS: ${message}`;
+        }
+
+        // Initialize on load
+        window.addEventListener('load', initSlideshow);
+
+        // Update status based on video events
+        videoPlayer.addEventListener('play', () => updateStatus('PLAYING'));
+        videoPlayer.addEventListener('pause', () => updateStatus('PAUSED'));
+        videoPlayer.addEventListener('ended', () => updateStatus('COMPLETED'));
+        videoPlayer.addEventListener('error', () => updateStatus('ERROR'));
+    </script>
+</body>
+</html>
